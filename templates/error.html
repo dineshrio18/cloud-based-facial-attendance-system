@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}{{ error_code }} - {{ error_title }}{% endblock %}
+{% block page_title %}{{ error_title }}{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 560px; margin: 40px auto; text-align: center; padding: 32px 24px;">
+  <div style="font-size: 54px; font-weight: 800; color: var(--danger); line-height: 1; margin-bottom: 16px;">
+    {{ error_code }}
+  </div>
+  <h3 style="font-size: 20px; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">
+    {{ error_title }}
+  </h3>
+  <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; line-height: 1.6;">
+    {{ error_message }}
+  </p>
+  <div style="display: flex; justify-content: center; gap: 12px;">
+    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">
+      <span>🏠</span> Return to Dashboard
+    </a>
+    <a href="javascript:history.back()" class="btn btn-secondary">
+      <span>⬅️</span> Go Back
+    </a>
+  </div>
+</div>
+{% endblock %}

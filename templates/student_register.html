@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Register Student - Facial Attendance System{% endblock %}
+{% block page_title %}Enroll New Student{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 680px; margin: 0 auto;">
+  <div class="card-header">
+    <h3 class="card-title">Student Profile Registration</h3>
+  </div>
+  <div class="card-body">
+    <p style="color: var(--text-secondary); margin-bottom: 24px; font-size: 13.5px;">
+      Enter the student's institutional details. After creating the profile, you will be directed to the interactive camera module to capture 30–50 face images and generate biometric encodings.
+    </p>
+
+    <form method="POST" action="{{ url_for('student.register') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+      <div class="form-group">
+        <label for="student_id" class="form-label">Student ID / Roll Number <span style="color: var(--danger);">*</span></label>
+        <input
+          type="text"
+          id="student_id"
+          name="student_id"
+          class="form-control"
+          placeholder="e.g. CS2026001 or EMP-1042"
+          required
+          autofocus
+        >
+        <small style="color: var(--text-muted); font-size: 12px;">Unique institutional identifier. Alphanumeric characters, dashes, and underscores allowed.</small>
+      </div>
+
+      <div class="form-group">
+        <label for="full_name" class="form-label">Full Name <span style="color: var(--danger);">*</span></label>
+        <input
+          type="text"
+          id="full_name"
+          name="full_name"
+          class="form-control"
+          placeholder="e.g. Johnathan Doe"
+          required
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="department" class="form-label">Department / Program</label>
+        <input
+          type="text"
+          id="department"
+          name="department"
+          class="form-control"
+          placeholder="e.g. Computer Science & Engineering"
+          list="dept_list"
+        >
+        <datalist id="dept_list">
+          {% for dept in departments %}
+            <option value="{{ dept }}">
+          {% endfor %}
+          <option value="Computer Science & Engineering">
+          <option value="Information Technology">
+          <option value="Electronics & Communication">
+          <option value="Mechanical Engineering">
+          <option value="Business Administration">
+        </datalist>
+      </div>
+
+      <div class="form-group">
+        <label for="email" class="form-label">Institutional Email</label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          class="form-control"
+          placeholder="e.g. jdoe@institution.edu"
+        >
+      </div>
+
+      <!-- Biometric Consent & Privacy Disclosure -->
+      <div style="background-color: var(--surface-subtle); border: 1px solid var(--surface-border); border-radius: var(--radius-sm); padding: 16px; margin: 24px 0;">
+        <h4 style="font-size: 13.5px; font-weight: 700; color: var(--navy-dark); margin-bottom: 8px;">
+          Biometric Data Consent & Privacy Notice
+        </h4>
+        <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">
+          By registering, facial image samples will be captured via webcam to extract a 128-dimensional mathematical vector representation (biometric encoding) strictly for the purpose of automated attendance verification. Face images are stored in a secured local dataset folder and backed up to private, encrypted Amazon S3 storage when cloud mode is enabled. Biometric data will never be made publicly accessible or shared with third parties.
+        </p>
+
+        <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px; font-weight: 600; cursor: pointer;">
+          <input type="checkbox" name="biometric_consent" id="biometric_consent" value="1" required style="margin-top: 2px;">
+          <span>I confirm that the individual has provided informed consent for facial image capture and biometric attendance processing. <span style="color: var(--danger);">*</span></span>
+        </label>
+      </div>
+
+      <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+        <a href="{{ url_for('student.list_students') }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">
+          <span>➡️</span> Create Profile & Start Face Capture
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

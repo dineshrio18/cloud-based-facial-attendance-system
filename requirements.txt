@@ -1,0 +1,26 @@
+# Core Web & API Framework
+Flask>=3.0.0
+Werkzeug>=3.0.0
+python-dotenv>=1.0.0
+pytz>=2024.1
+
+# Computer Vision & Image Processing
+opencv-python>=4.8.0
+numpy>=1.24.0
+Pillow>=10.0.0
+
+# Cloud & Database Drivers
+boto3>=1.30.0
+mysql-connector-python>=8.0.0
+
+# Testing
+pytest>=7.4.0
+
+# Optional / Platform-Specific Face Recognition Dependencies
+# NOTE: 'face_recognition' requires 'dlib'. On Windows, compiling dlib requires
+# Visual Studio C++ Build Tools and CMake, or pre-built binary wheels (.whl) for Python <= 3.11.
+# The application contains an automatic fallback to OpenCV deep neural metric face recognition
+# if dlib/face_recognition is not compiled in your local Windows environment.
+#
+# face_recognition>=1.3.0
+# dlib>=19.24.0

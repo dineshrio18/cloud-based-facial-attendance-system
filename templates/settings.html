@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}System Settings - Facial Attendance System{% endblock %}
+{% block page_title %}System Settings & Cloud Integration{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
+  <!-- Left Column: Cloud & Infrastructure Status -->
+  <div>
+    <!-- Database Card -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Database Integration</h3>
+        <span class="badge {% if app_mode == 'CLOUD' %}badge-cloud{% else %}badge-local{% endif %}">
+          {{ app_mode }} MODE
+        </span>
+      </div>
+      <div class="card-body">
+        <div style="margin-bottom: 16px;">
+          <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Connection Health</div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+            {% if db_health.connected %}
+              <span class="status-dot dot-green"></span>
+              <span style="font-weight: 700; color: #065f46;">Connected & Verified</span>
+              <span style="font-size: 12px; color: var(--text-muted);">({{ db_health.latency_ms }} ms latency)</span>
+            {% else %}
+              <span class="status-dot dot-red"></span>
+              <span style="font-weight: 700; color: #991b1b;">Connection Unavailable</span>
+            {% endif %}
+          </div>
+          {% if db_health.error %}
+            <div style="margin-top: 8px; font-size: 12px; color: #991b1b; background: var(--danger-bg); padding: 8px 12px; border-radius: var(--radius-sm);">
+              Error: {{ db_health.error }}
+            </div>
+          {% endif %}
+        </div>
+
+        <table style="width: 100%; font-size: 13px; line-height: 2;">
+          <tr>
+            <td style="color: var(--text-muted);">Target Backend:</td>
+            <td style="font-weight: 600;">{% if app_mode == 'CLOUD' %}Amazon RDS (MySQL){% else %}Local Standalone (SQLite){% endif %}</td>
+          </tr>
+          <tr>
+            <td style="color: var(--text-muted);">Host / Path:</td>
+            <td style="font-family: monospace; font-size: 12px;">{{ db_health.target }}</td>
+          </tr>
+          {% if app_mode == 'CLOUD' %}
+            <tr>
+              <td style="color: var(--text-muted);">Port:</td>
+              <td>{{ config.DB_PORT }}</td>
+            </tr>
+            <tr>
+              <td style="color: var(--text-muted);">Database Name:</td>
+              <td>{{ config.DB_NAME }}</td>
+            </tr>
+            <tr>
+              <td style="color: var(--text-muted);">DB User:</td>
+              <td>{{ config.DB_USER }}</td>
+            </tr>
+          {% endif %}
+        </table>
+      </div>
+    </div>
+
+    <!-- S3 Storage Card -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Amazon S3 Image Cloud Backup</h3>
+      </div>
+      <div class="card-body">
+        <div style="margin-bottom: 16px;">
+          <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Bucket Health</div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+            {% if s3_health.connected %}
+              <span class="status-dot dot-green"></span>
+              <span style="font-weight: 700; color: #065f46;">Connected & Accessible</span>
+            {% elif s3_health.configured %}
+              <span class="status-dot dot-amber"></span>
+              <span style="font-weight: 700; color: #92400e;">Configured, but Unreachable</span>
+            {% else %}
+              <span class="status-dot dot-amber"></span>
+              <span style="font-weight: 700; color: var(--text-muted);">Not Configured (Local Only)</span>
+            {% endif %}
+          </div>
+          {% if s3_health.error %}
+            <div style="margin-top: 8px; font-size: 12px; color: #991b1b; background: var(--danger-bg); padding: 8px 12px; border-radius: var(--radius-sm);">
+              {{ s3_health.error }}
+            </div>
+          {% endif %}
+        </div>
+
+        <table style="width: 100%; font-size: 13px; line-height: 2; margin-bottom: 16px;">
+          <tr>
+            <td style="color: var(--text-muted);">Bucket Name:</td>
+            <td style="font-family: monospace; font-size: 12px;">{{ config.S3_BUCKET_NAME or 'None' }}</td>
+          </tr>
+          <tr>
+            <td style="color: var(--text-muted);">AWS Region:</td>
+            <td>{{ config.AWS_REGION }}</td>
+          </tr>
+          <tr>
+            <td style="color: var(--text-muted);">Pending Cloud Syncs:</td>
+            <td><strong>{{ pending_s3_count }}</strong> images</td>
+          </tr>
+          <tr>
+            <td style="color: var(--text-muted);">Encryption:</td>
+            <td>Server-Side AES256 (SSE-S3)</td>
+          </tr>
+        </table>
+
+        <form method="POST" action="{{ url_for('settings.s3_sync') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn-secondary btn-sm" style="width: 100%;" {% if not config.S3_BUCKET_NAME %}disabled{% endif %}>
+            <span>☁️</span> Retry / Sync Pending Images to S3
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Biometric Parameters & Security -->
+  <div>
+    <!-- Biometric Engine Card -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Biometric Recognition Parameters</h3>
+      </div>
+      <div class="card-body">
+        <table style="width: 100%; font-size: 13px; line-height: 2; margin-bottom: 16px;">
+          <tr>
+            <td style="color: var(--text-muted);">Active CV Backend:</td>
+            <td><strong style="color: var(--primary);">{{ config.FACE_ENGINE|capitalize }}</strong></td>
+          </tr>
+          <tr>
+            <td style="color: var(--text-muted);">Distance Threshold:</td>
+            <td>{{ config.RECOGNITION_THRESHOLD }} (Euclidean distance cutoff)</td>
+          </tr>
+          <tr>
+            <td style="color: var(--text-muted);">Ambiguity Margin:</td>
+            <td>{{ config.AMBIGUITY_MARGIN }}</td>
+          </tr>
+          <tr>
+            <td style="color: var(--text-muted);">Event Cooldown:</td>
+            <td>{{ config.RECOGNITION_COOLDOWN_SECONDS }} seconds</td>
+          </tr>
+          <tr>
+            <td style="color: var(--text-muted);">Loaded Encodings:</td>
+            <td><strong>{{ total_encodings }}</strong> biometric vectors in memory</td>
+          </tr>
+        </table>
+
+        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 16px;">
+          The database is the authoritative source of truth. If students are deactivated, re-enrolled, or added via bulk operations, click below to recompile the active biometric dataset index.
+        </p>
+
+        <form method="POST" action="{{ url_for('settings.rebuild_encodings') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn-primary btn-sm" style="width: 100%;">
+            <span>🔄</span> Rebuild Active Biometric Encodings
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Security & Password Change Card -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Administrator Security</h3>
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('settings.change_password') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+          <div class="form-group">
+            <label for="current_password" class="form-label">Current Password</label>
+            <input type="password" id="current_password" name="current_password" class="form-control" required>
+          </div>
+
+          <div class="form-group">
+            <label for="new_password" class="form-label">New Password</label>
+            <input type="password" id="new_password" name="new_password" class="form-control" placeholder="Min. 8 characters" required>
+          </div>
+
+          <div class="form-group">
+            <label for="confirm_password" class="form-label">Confirm New Password</label>
+            <input type="password" id="confirm_password" name="confirm_password" class="form-control" required>
+          </div>
+
+          <button type="submit" class="btn btn-secondary btn-sm" style="width: 100%;">
+            Update Password
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

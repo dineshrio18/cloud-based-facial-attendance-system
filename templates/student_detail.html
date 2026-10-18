@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+
+{% block title %}{{ student.full_name }} ({{ student.student_id }}) - Profile{% endblock %}
+{% block page_title %}Student Profile & Biometric Enrollment{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; align-items: start;">
+  <!-- Left Column: Student Information & Controls -->
+  <div>
+    <!-- Profile Card -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Profile Details</h3>
+        <span class="badge {% if student.status == 'active' %}badge-active{% else %}badge-inactive{% endif %}">
+          {{ student.status|capitalize }}
+        </span>
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('student.edit_student', student_pk=student.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+          <div class="form-group">
+            <label class="form-label">Student ID</label>
+            <input type="text" class="form-control" value="{{ student.student_id }}" disabled style="background: var(--surface-subtle);">
+          </div>
+
+          <div class="form-group">
+            <label for="full_name" class="form-label">Full Name</label>
+            <input type="text" id="full_name" name="full_name" class="form-control" value="{{ student.full_name }}" required>
+          </div>
+
+          <div class="form-group">
+            <label for="department" class="form-label">Department</label>
+            <input type="text" id="department" name="department" class="form-control" value="{{ student.department or '' }}">
+          </div>
+
+          <div class="form-group">
+            <label for="email" class="form-label">Email</label>
+            <input type="email" id="email" name="email" class="form-control" value="{{ student.email or '' }}">
+          </div>
+
+          <div class="form-group">
+            <label for="status" class="form-label">Enrollment Status</label>
+            <select name="status" id="status" class="form-select">
+              <option value="active" {% if student.status == 'active' %}selected{% endif %}>Active (Recognized in Attendance)</option>
+              <option value="inactive" {% if student.status == 'inactive' %}selected{% endif %}>Inactive (Biometrics Disabled)</option>
+            </select>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 8px;">
+            Save Profile Updates
+          </button>
+        </form>
+
+        <hr style="margin: 20px 0; border: none; border-top: 1px solid var(--surface-border);">
+
+        <!-- Delete Student Form -->
+        <form method="POST" action="{{ url_for('student.delete_student', student_pk=student.id) }}" onsubmit="return confirm('WARNING: Are you sure you want to permanently delete this student, their attendance history, and all stored facial biometric data? This action cannot be undone.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn-danger btn-sm" style="width: 100%;">
+            Delete Student & Purge Biometrics
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Attendance Summary Card -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Attendance Summary</h3>
+      </div>
+      <div class="card-body">
+        <div style="font-size: 28px; font-weight: 800; color: var(--primary);">
+          {{ history.total_attended_days }} <span style="font-size: 14px; font-weight: 500; color: var(--text-muted);">Days Attended</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Interactive Biometric Capture & History -->
+  <div>
+    <!-- Biometric Capture Card -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Facial Biometric Image Enrollment</h3>
+        <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);" id="captureCountLabel">
+          {{ images|length }} / {{ target_count }} Samples
+        </span>
+      </div>
+      <div class="card-body">
+        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px;">
+          The system captures approximately 30–50 face images with slight variations in angle and expression. Frames with poor illumination, blur, or multiple faces are automatically rejected.
+        </p>
+
+        <!-- Capture Controls -->
+        <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+          <button type="button" id="startCamBtn" class="btn btn-primary">
+            <span>📷</span> Open Camera & Start Capture
+          </button>
+          <button type="button" id="stopCamBtn" class="btn btn-secondary" style="display: none;">
+            <span>⏹</span> Stop Camera
+          </button>
+          <button type="button" id="finalizeBtn" class="btn btn-success" {% if images|length == 0 %}disabled{% endif %}>
+            <span>⚡</span> Finalize Enrollment & Train Model
+          </button>
+        </div>
+
+        <!-- Camera Viewport & Overlay -->
+        <div id="cameraContainer" style="display: none; position: relative; width: 100%; max-width: 540px; margin: 0 auto 20px; border-radius: var(--radius-md); overflow: hidden; background: #000;">
+          <video id="webcamVideo" autoplay playsinline muted style="width: 100%; display: block;"></video>
+          <canvas id="captureCanvas" style="display: none;"></canvas>
+
+          <div id="captureFeedback" style="position: absolute; bottom: 12px; left: 12px; right: 12px; background: rgba(15, 23, 42, 0.85); color: #fff; padding: 8px 14px; border-radius: var(--radius-sm); font-size: 12.5px; text-align: center; backdrop-filter: blur(4px);">
+            Ready to capture. Please look directly at the camera.
+          </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div style="margin-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">
+            <span>Enrollment Progress</span>
+            <span id="progressText">{{ (images|length / target_count * 100)|round|int }}%</span>
+          </div>
+          <div style="width: 100%; height: 8px; background-color: var(--surface-subtle); border-radius: 4px; overflow: hidden;">
+            <div id="progressBar" style="height: 100%; width: {{ (images|length / target_count * 100)|round|int }}%; background-color: var(--primary); transition: width 0.3s ease;"></div>
+          </div>
+        </div>
+
+        <!-- Finalize Status Message -->
+        <div id="finalizeStatus" style="display: none; margin-bottom: 16px;"></div>
+
+        <!-- Image Gallery -->
+        <h4 style="font-size: 13.5px; font-weight: 700; margin-bottom: 12px; color: var(--text-main);">
+          Stored Image Samples ({{ images|length }})
+        </h4>
+        <div id="imageGallery" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; max-height: 240px; overflow-y: auto; padding: 4px;">
+          {% for img in images %}
+            <div style="aspect-ratio: 1; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--surface-border); background: #eee; position: relative;">
+              <div style="position: absolute; bottom: 2px; right: 2px; background: rgba(0,0,0,0.6); color: #fff; font-size: 9px; padding: 1px 4px; border-radius: 2px;">
+                {{ loop.index }}
+              </div>
+              <div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 20px; color: #888;">
+                👤
+              </div>
+            </div>
+          {% else %}
+            <div style="grid-column: 1 / -1; padding: 20px; text-align: center; color: var(--text-muted); font-size: 13px;">
+              No face images captured yet. Click "Open Camera & Start Capture" above.
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Attendance History Table -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Attendance History</h3>
+      </div>
+      <div class="card-body" style="padding: 0;">
+        {% if history.records and history.records|length > 0 %}
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in history.records %}
+                  <tr>
+                    <td>{{ r.attendance_date }}</td>
+                    <td>{{ r.attendance_time }}</td>
+                    <td>
+                      {% if r.source == 'facial_recognition' %}
+                        <span class="badge badge-face">Facial Recognition</span>
+                      {% else %}
+                        <span class="badge badge-manual">Manual</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div style="padding: 32px; text-align: center; color: var(--text-muted); font-size: 13.5px;">
+            No attendance records found for this student.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const studentPk = {{ student.id }};
+  const targetCount = {{ target_count }};
+  let currentCount = {{ images|length }};
+  let captureStream = null;
+  let captureInterval = null;
+  let isCapturing = false;
+
+  const startCamBtn = document.getElementById('startCamBtn');
+  const stopCamBtn = document.getElementById('stopCamBtn');
+  const finalizeBtn = document.getElementById('finalizeBtn');
+  const video = document.getElementById('webcamVideo');
+  const canvas = document.getElementById('captureCanvas');
+  const cameraContainer = document.getElementById('cameraContainer');
+  const feedback = document.getElementById('captureFeedback');
+  const progressBar = document.getElementById('progressBar');
+  const progressText = document.getElementById('progressText');
+  const countLabel = document.getElementById('captureCountLabel');
+  const finalizeStatus = document.getElementById('finalizeStatus');
+
+  async function startWebcam() {
+    try {
+      captureStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+      });
+      video.srcObject = captureStream;
+      cameraContainer.style.display = 'block';
+      startCamBtn.style.display = 'none';
+      stopCamBtn.style.display = 'inline-flex';
+      feedback.textContent = 'Camera active. Positioning face...';
+      startCapturing();
+    } catch (err) {
+      alert('Could not access webcam. Please check browser permissions: ' + err.message);
+    }
+  }
+
+  function stopWebcam() {
+    if (captureInterval) {
+      clearInterval(captureInterval);
+      captureInterval = null;
+    }
+    if (captureStream) {
+      captureStream.getTracks().forEach(track => track.stop());
+      captureStream = null;
+    }
+    cameraContainer.style.display = 'none';
+    startCamBtn.style.display = 'inline-flex';
+    stopCamBtn.style.display = 'none';
+    isCapturing = false;
+  }
+
+  function startCapturing() {
+    if (isCapturing) return;
+    isCapturing = true;
+
+    canvas.width = 640;
+    canvas.height = 480;
+    const ctx = canvas.getContext('2d');
+
+    captureInterval = setInterval(async () => {
+      if (currentCount >= targetCount) {
+        feedback.textContent = `Target reached (${currentCount}/${targetCount})! Click Finalize Enrollment.`;
+        stopWebcam();
+        finalizeBtn.disabled = false;
+        return;
+      }
+
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.90);
+
+      try {
+        // Validate frame
+        const valRes = await fetch("{{ url_for('student.api_validate_frame') }}", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataUrl })
+        });
+        const valData = await valRes.json();
+
+        if (valData.valid) {
+          feedback.textContent = 'Good frame detected! Saving sample...';
+          // Save frame
+          const saveRes = await fetch("{{ url_for('student.api_save_frame') }}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              student_pk: studentPk,
+              index: currentCount + 1,
+              image: dataUrl
+            })
+          });
+          const saveData = await saveRes.json();
+          if (saveData.success) {
+            currentCount = saveData.total_captured;
+            updateProgress();
+            feedback.textContent = `Captured sample ${currentCount} of ${targetCount}. Turn head slightly.`;
+          }
+        } else {
+          feedback.textContent = valData.message;
+        }
+      } catch (e) {
+        feedback.textContent = 'Processing frame...';
+      }
+    }, 450); // Capture rate ~2 frames per second with quality filter
+  }
+
+  function updateProgress() {
+    const pct = Math.min(100, Math.round((currentCount / targetCount) * 100));
+    progressBar.style.width = pct + '%';
+    progressText.textContent = pct + '%';
+    countLabel.textContent = `${currentCount} / ${targetCount} Samples`;
+    if (currentCount > 0) {
+      finalizeBtn.disabled = false;
+    }
+  }
+
+  async function finalizeEnrollment() {
+    finalizeBtn.disabled = true;
+    finalizeBtn.innerHTML = '<span>⏳</span> Processing Encodings...';
+    finalizeStatus.style.display = 'block';
+    finalizeStatus.className = 'alert alert-info';
+    finalizeStatus.textContent = 'Extracting 128D biometric encodings and rebuilding model...';
+
+    try {
+      const res = await fetch("{{ url_for('student.api_finalize_registration') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_pk: studentPk })
+      });
+      const data = await res.json();
+      if (data.success) {
+        finalizeStatus.className = 'alert alert-success';
+        finalizeStatus.textContent = data.message + ' Page will reload...';
+        setTimeout(() => { window.location.reload(); }, 1500);
+      } else {
+        finalizeStatus.className = 'alert alert-danger';
+        finalizeStatus.textContent = data.message;
+        finalizeBtn.disabled = false;
+        finalizeBtn.innerHTML = '<span>⚡</span> Finalize Enrollment';
+      }
+    } catch (err) {
+      finalizeStatus.className = 'alert alert-danger';
+      finalizeStatus.textContent = 'Error: ' + err.message;
+      finalizeBtn.disabled = false;
+      finalizeBtn.innerHTML = '<span>⚡</span> Finalize Enrollment';
+    }
+  }
+
+  startCamBtn.addEventListener('click', startWebcam);
+  stopCamBtn.addEventListener('click', stopWebcam);
+  finalizeBtn.addEventListener('click', finalizeEnrollment);
+
+  // Auto-start capture if directed from registration form
+  {% if start_capture %}
+    window.addEventListener('DOMContentLoaded', () => {
+      startWebcam();
+    });
+  {% endif %}
+</script>
+{% endblock %}

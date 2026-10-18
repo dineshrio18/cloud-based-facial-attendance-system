@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ app_title }}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="app-sidebar">
+      <div class="sidebar-header">
+        <div class="brand-icon">FA</div>
+        <div class="brand-text">
+          <h1>Facial Attendance</h1>
+          <span class="brand-badge {% if app_mode == 'CLOUD' %}badge-cloud{% else %}badge-local{% endif %}">
+            {{ app_mode }} MODE
+          </span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">Operations</div>
+        <a href="{{ url_for('dashboard.index') }}" class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+          <span class="nav-icon">📊</span>
+          <span>Overview</span>
+        </a>
+        <a href="{{ url_for('recognition.index') }}" class="nav-link {% if request.endpoint == 'recognition.index' %}active{% endif %}">
+          <span class="nav-icon">📷</span>
+          <span>Live Recognition</span>
+        </a>
+        <a href="{{ url_for('attendance.index') }}" class="nav-link {% if request.endpoint == 'attendance.index' %}active{% endif %}">
+          <span class="nav-icon">📋</span>
+          <span>Attendance Records</span>
+        </a>
+
+        <div class="nav-section-title">Students & Biometrics</div>
+        <a href="{{ url_for('student.list_students') }}" class="nav-link {% if request.endpoint == 'student.list_students' %}active{% endif %}">
+          <span class="nav-icon">👥</span>
+          <span>Student Directory</span>
+        </a>
+        <a href="{{ url_for('student.register') }}" class="nav-link {% if request.endpoint == 'student.register' %}active{% endif %}">
+          <span class="nav-icon">➕</span>
+          <span>Register Student</span>
+        </a>
+
+        <div class="nav-section-title">System</div>
+        <a href="{{ url_for('settings.index') }}" class="nav-link {% if request.endpoint == 'settings.index' %}active{% endif %}">
+          <span class="nav-icon">⚙️</span>
+          <span>Settings & Cloud</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <span class="user-name">{{ current_user.username if current_user else 'Admin' }}</span>
+          <span class="user-role">{{ current_user.role|capitalize if current_user else 'Operator' }}</span>
+        </div>
+        <a href="{{ url_for('auth.logout') }}" class="logout-btn" title="Sign Out">Sign Out</a>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="app-main">
+      <header class="top-bar">
+        <div class="page-title">
+          <h2>{% block page_title %}Dashboard{% endblock %}</h2>
+        </div>
+        <div class="top-status-bar">
+          <div class="status-indicator">
+            <span class="status-dot dot-green"></span>
+            <span>Engine Ready</span>
+          </div>
+          {% if app_mode == 'CLOUD' %}
+          <div class="status-indicator">
+            <span class="status-dot dot-green"></span>
+            <span>AWS Cloud</span>
+          </div>
+          {% else %}
+          <div class="status-indicator">
+            <span class="status-dot dot-amber"></span>
+            <span>Local SQLite</span>
+          </div>
+          {% endif %}
+        </div>
+      </header>
+
+      <main class="content-body">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-container">
+              {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                  <span>{{ message }}</span>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

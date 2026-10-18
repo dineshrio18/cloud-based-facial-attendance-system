@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Overview - Facial Attendance System{% endblock %}
+{% block page_title %}Operational Overview{% endblock %}
+
+{% block content %}
+<!-- Cloud & System Status Bar -->
+<div class="card" style="margin-bottom: 24px; background: #fff;">
+  <div class="card-body" style="padding: 16px 24px;">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;">
+      <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap;">
+        <!-- Date -->
+        <div>
+          <span style="font-size: 11.5px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Date</span>
+          <div style="font-weight: 700; color: var(--text-main);">{{ today_date }}</div>
+        </div>
+
+        <!-- Mode -->
+        <div>
+          <span style="font-size: 11.5px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Mode</span>
+          <div style="font-weight: 700;">
+            <span class="badge {% if app_mode == 'CLOUD' %}badge-cloud{% else %}badge-local{% endif %}">
+              {{ app_mode }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Database Health -->
+        <div>
+          <span style="font-size: 11.5px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Database ({{ db_health.mode }})</span>
+          <div style="display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13.5px;">
+            {% if db_health.connected %}
+              <span class="status-dot dot-green"></span>
+              <span style="color: #065f46;">Connected ({{ db_health.latency_ms }} ms)</span>
+            {% else %}
+              <span class="status-dot dot-red"></span>
+              <span style="color: #991b1b;">Unavailable</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- S3 Health -->
+        <div>
+          <span style="font-size: 11.5px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Amazon S3</span>
+          <div style="display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13.5px;">
+            {% if s3_health.connected %}
+              <span class="status-dot dot-green"></span>
+              <span style="color: #065f46;">Connected ({{ s3_health.bucket }})</span>
+            {% elif s3_health.configured %}
+              <span class="status-dot dot-amber"></span>
+              <span style="color: #92400e;">Configured (Connection Error)</span>
+            {% else %}
+              <span class="status-dot dot-amber"></span>
+              <span style="color: var(--text-muted);">Not Configured</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div style="display: flex; gap: 10px;">
+        <a href="{{ url_for('recognition.index') }}" class="btn btn-primary">
+          <span>📷</span> Start Live Recognition
+        </a>
+        <a href="{{ url_for('student.register') }}" class="btn btn-secondary">
+          <span>➕</span> Register Student
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Primary Key Performance Indicators (Real calculated statistics) -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <span class="stat-label">Total Registered Students</span>
+    <span class="stat-value">{{ stats.total_students }}</span>
+    <span class="stat-subtext">Active enrolled individuals</span>
+  </div>
+
+  <div class="stat-card">
+    <span class="stat-label">Marked Present Today</span>
+    <span class="stat-value" style="color: var(--success);">{{ stats.marked_today }}</span>
+    <span class="stat-subtext">Verified attendance events</span>
+  </div>
+
+  <div class="stat-card">
+    <span class="stat-label">Unmarked / Absent Today</span>
+    <span class="stat-value" style="color: {% if stats.unmarked_today > 0 %}var(--warning){% else %}var(--text-main){% endif %};">
+      {{ stats.unmarked_today }}
+    </span>
+    <span class="stat-subtext">Pending check-in today</span>
+  </div>
+
+  <div class="stat-card">
+    <span class="stat-label">Today's Attendance Rate</span>
+    <span class="stat-value" style="color: var(--primary);">{{ stats.attendance_percentage }}%</span>
+    <span class="stat-subtext">Calculated from registered students</span>
+  </div>
+</div>
+
+<!-- Recent Attendance Table -->
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Recent Attendance Activity</h3>
+    <a href="{{ url_for('attendance.index') }}" class="btn btn-secondary btn-sm">View All Records</a>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    {% if stats.recent_records and stats.recent_records|length > 0 %}
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Student ID</th>
+              <th>Student Name</th>
+              <th>Department</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for rec in stats.recent_records %}
+              <tr>
+                <td style="font-weight: 600; color: var(--text-main);">{{ rec.student_code }}</td>
+                <td>{{ rec.student_name }}</td>
+                <td>{{ rec.department or '—' }}</td>
+                <td>{{ rec.attendance_date }}</td>
+                <td>{{ rec.attendance_time }}</td>
+                <td>
+                  {% if rec.source == 'facial_recognition' %}
+                    <span class="badge badge-face">Facial Recognition</span>
+                  {% else %}
+                    <span class="badge badge-manual">Manual</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-state-icon">📋</div>
+        <h3>No Attendance Recorded Yet Today</h3>
+        <p>Start live recognition or register students to begin automated attendance tracking.</p>
+        <a href="{{ url_for('recognition.index') }}" class="btn btn-primary btn-sm">Launch Live Recognition</a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

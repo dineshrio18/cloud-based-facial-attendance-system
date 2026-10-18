@@ -1,0 +1,70 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# SQLite local database
+*.sqlite3
+*.db
+!database/schema.sql
+
+# Biometric face images & dataset (Do not commit biometric data)
+data/dataset/*
+!data/dataset/.gitkeep
+data/raw/*
+!data/.gitkeep
+
+# Biometric encodings
+encodings/*
+!encodings/.gitkeep
+
+# Application logs
+logs/*
+!logs/.gitkeep
+
+# Unit test & coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editor directories
+.idea/
+.vscode/
+*.swp
+*.swo
