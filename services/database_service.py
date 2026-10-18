@@ -46,10 +46,14 @@ class DatabaseService:
                 logger.warning(f"RDS MySQL configuration incomplete. Missing variables: {', '.join(missing)}")
                 return
 
+            if DatabaseService._mysql_pool is not None:
+                self._mysql_pool = DatabaseService._mysql_pool
+                return
+
             try:
                 connect_args = {
                     "pool_name": "rds_facial_pool",
-                    "pool_size": 5,
+                    "pool_size": 20,
                     "pool_reset_session": True,
                     "host": self.config.DB_HOST,
                     "port": self.config.DB_PORT,
@@ -62,7 +66,8 @@ class DatabaseService:
                     connect_args["ssl_ca"] = self.config.DB_SSL_CA
                     connect_args["ssl_verify_cert"] = True
 
-                self._mysql_pool = pooling.MySQLConnectionPool(**connect_args)
+                DatabaseService._mysql_pool = pooling.MySQLConnectionPool(**connect_args)
+                self._mysql_pool = DatabaseService._mysql_pool
                 logger.info(f"Initialized MySQL connection pool for RDS ({self.config.DB_HOST}:{self.config.DB_PORT})")
             except Exception as e:
                 logger.error(f"Failed to initialize RDS MySQL connection pool: {e}")
